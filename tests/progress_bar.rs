@@ -6,14 +6,8 @@
 //! terminated, it won't terminate the actual thread, and multiple instances
 //! could monitor the job in a stateless fashion. Similar to `pv` in linux.
 
-use std::future::pending;
+use hexapod::Terminator;
 use tokio::time::{sleep, timeout, Duration};
-
-/// Governs when the application quits and stops execution.
-pub trait Terminator {
-    /// `true` if and only if we want our application to stop. E.g. after somebody send SIGTERM.
-    fn should_stop(&mut self) -> bool;
-}
 
 /// A [`Terminator`] which always advices the application to stop
 struct StopImmediatly;
@@ -34,12 +28,11 @@ struct Status {
     already_done: u64,
 }
 
-pub struct DisplayStatusApp {
-}
+pub struct DisplayStatusApp {}
 
 impl DisplayStatusApp {
     pub fn new() -> Self {
-        DisplayStatusApp{}
+        DisplayStatusApp {}
     }
 
     pub async fn run(&mut self, mut until: impl Terminator) {
@@ -53,10 +46,10 @@ impl DisplayStatusApp {
 async fn terminate_the_application() {
     // Given an application.
     let mut app = DisplayStatusApp::new();
-    
+
     // When we start the application and terminate it immediately
     let run_to_completion = app.run(StopImmediatly);
-    
+
     // Then the application runs to compeltion within 2ms
     let result = timeout(Duration::from_millis(2), run_to_completion).await;
     assert!(result.is_ok())
