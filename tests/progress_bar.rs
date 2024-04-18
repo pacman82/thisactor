@@ -6,19 +6,13 @@
 //! terminated, it won't terminate the actual thread, and multiple instances
 //! could monitor the job in a stateless fashion. Similar to `pv` in linux.
 
-use hexapod::Terminator;
+use std::future::ready;
+
+use futures::{Future, FutureExt};
 use tokio::time::{sleep, timeout, Duration};
 
-/// A [`Terminator`] which always advices the application to stop
-struct StopImmediatly;
-
-impl Terminator for StopImmediatly {
-    fn should_stop(&mut self) -> bool {
-        true
-    }
-}
-
-/// A port implemented by an adapter observing the status of long running operation.
+/// A port implemented by an adapter observing the status of long running
+/// operation.
 pub trait ProgressMonitor {
     fn status() -> Status;
 }
@@ -35,8 +29,9 @@ impl DisplayStatusApp {
         DisplayStatusApp {}
     }
 
-    pub async fn run(&mut self, mut until: impl Terminator) {
-        while !until.should_stop() {
+    pub async fn run(&mut self, until: impl Future) {
+        tokio::pin!(until);
+        while until.as_mut().now_or_never().is_none() {
             sleep(Duration::from_millis(5)).await
         }
     }
@@ -48,7 +43,7 @@ async fn terminate_the_application() {
     let mut app = DisplayStatusApp::new();
 
     // When we start the application and terminate it immediately
-    let run_to_completion = app.run(StopImmediatly);
+    let run_to_completion = app.run(ready(()));
 
     // Then the application runs to compeltion within 2ms
     let result = timeout(Duration::from_millis(2), run_to_completion).await;

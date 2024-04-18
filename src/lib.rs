@@ -32,12 +32,6 @@
 //! is linked into the buisness logic via a port, rather than the UI being host
 //! to the buisness logic.
 
-/// Governs when the application quits and stops execution.
-pub trait Terminator {
-    /// `true` if and only if we want our application to stop. E.g. after somebody send SIGTERM.
-    fn should_stop(&mut self) -> bool;
-}
-
 #[cfg(test)]
 mod tests {
     // use super::*;
