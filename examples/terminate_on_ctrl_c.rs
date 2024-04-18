@@ -2,20 +2,20 @@
 //! in an example instead. Prints "I am still running every second until
 //! terminated".
 
-use futures::{Future, FutureExt};
+use futures::Future;
 use tokio::{
     signal::ctrl_c,
-    time::{sleep, Duration},
+    time::{timeout, Duration},
 };
 
 struct StillAlive;
 
 impl StillAlive {
     pub async fn run(&mut self, until: impl Future) {
+        let interval = Duration::from_secs(1);
         tokio::pin!(until);
-        while until.as_mut().now_or_never().is_none() {
+        while timeout(interval, until.as_mut()).await.is_err() {
             println!("I am alive");
-            sleep(Duration::from_secs(1)).await;
         }
         println!("stopping, received ctrl+c")
     }
