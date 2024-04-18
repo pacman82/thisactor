@@ -49,3 +49,4 @@ async fn terminate_the_application() {
     let result = timeout(Duration::from_millis(2), run_to_completion).await;
     assert!(result.is_ok())
 }
+
