@@ -9,7 +9,7 @@
 use std::future::ready;
 
 use futures::{Future, FutureExt};
-use tokio::time::{timeout, Duration};
+use tokio::time::{sleep, timeout, Duration};
 
 /// A port implemented by an adapter observing the status of long running
 /// operation.
@@ -17,25 +17,54 @@ pub trait StatusMonitor {
     fn status(&mut self) -> impl Future<Output = Status>;
 }
 
-#[derive(Clone,Copy)]
-struct Status {
-    _progress: u64
+#[derive(Clone, Copy)]
+pub struct Status {
+    progress: u64,
 }
 
-pub struct DisplayStatusApp<M> {
-    status_monitor: M,
+pub trait StatusDisplay {
+    fn render(&mut self, status: &Status) -> impl Future<Output = ()>;
 }
 
-impl<M> DisplayStatusApp<M> {
-    pub fn new(status_monitor: M) -> Self {
-        DisplayStatusApp { status_monitor }
+pub struct DisplayStatusApp<M, D> {
+    monitor: M,
+    display: D,
+}
+
+impl<M, D> DisplayStatusApp<M, D> {
+    pub fn new(monitor: M, display: D) -> Self {
+        DisplayStatusApp { monitor, display }
     }
 
-    pub async fn run(&mut self, until: impl Future) where M: StatusMonitor{
+    pub async fn run(&mut self, until: impl Future)
+    where
+        M: StatusMonitor,
+        D: StatusDisplay,
+    {
         tokio::pin!(until);
         while until.as_mut().now_or_never().is_none() {
-            let _ = timeout(Duration::from_millis(5), self.status_monitor.status()).await;
+            let status = self.monitor.status().await;
+            self.display.render(&status).await;
+            sleep(Duration::from_millis(5)).await;
         }
+    }
+}
+
+struct SpyDisplay {
+    status: Status,
+}
+
+impl SpyDisplay {
+    pub fn new() -> Self {
+        SpyDisplay {
+            status: Status { progress: 0 },
+        }
+    }
+}
+
+impl StatusDisplay for &mut SpyDisplay {
+    async fn render(&mut self, status: &Status) {
+        self.status = *status
     }
 }
 
@@ -45,7 +74,7 @@ struct ProgressStub {
 
 impl ProgressStub {
     pub fn new(status: Status) -> Self {
-        ProgressStub {status}
+        ProgressStub { status }
     }
 }
 
@@ -58,8 +87,9 @@ impl StatusMonitor for ProgressStub {
 #[tokio::test]
 async fn terminate_the_application() {
     // Given an application.
-    let status = ProgressStub::new(Status {_progress: 42 });
-    let mut app = DisplayStatusApp::new(status);
+    let status = ProgressStub::new(Status { progress: 42 });
+    let mut display_dummy = SpyDisplay::new();
+    let mut app = DisplayStatusApp::new(status, &mut display_dummy);
 
     // When we start the application and terminate it immediately
     let run_to_completion = app.run(ready(()));
@@ -72,6 +102,13 @@ async fn terminate_the_application() {
 #[tokio::test]
 async fn display_initial_status() {
     // Given
-    let status = ProgressStub::new(Status {_progress: 42 });
-    let _app = DisplayStatusApp::new(status);
+    let status = ProgressStub::new(Status { progress: 42 });
+    let mut display_spy = SpyDisplay::new();
+    let mut app = DisplayStatusApp::new(status, &mut display_spy);
+
+    // When we start the application and let it run for 2ms
+    app.run(sleep(Duration::from_millis(2))).await;
+
+    // Then
+    assert_eq!(42, display_spy.status.progress)
 }
