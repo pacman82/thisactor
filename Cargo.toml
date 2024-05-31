@@ -10,7 +10,7 @@ edition = "2021"
 thisactor-derive = { path = "./thisactor-derive", version = "0.1.0" }
 
 [dev-dependencies]
-tokio = { version = "1.37.0", features = [
+tokio = { version = "1.38.0", features = [
     "sync",
     "rt-multi-thread",
     "macros",
