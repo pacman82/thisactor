@@ -63,3 +63,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Test
         run: cargo test
+
+  dependabot:
+    needs: [linux,win64,osx]
+    permissions:
+      pull-requests: write
+      contents: write
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'}}
+    steps:
+      - name: Merge Depenabot Pull Request
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

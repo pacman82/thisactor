@@ -12,5 +12,5 @@ impl Hello {
 
 #[test]
 fn hello_event_should_exist() {
-    let event = HelloEvent::MyEvent;
+    let _event = HelloEvent::MyEvent;
 }
